@@ -2,7 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Battery;
+use App\Models\Connector;
+use App\Models\SolarPanel;
+use App\Search\Products;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Scout\ModelObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +24,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Register product aggregator
+        Products::bootSearchable();
+
+        // Do not index models
+        ModelObserver::disableSyncingFor(SolarPanel::class);
+        ModelObserver::disableSyncingFor(Battery::class);
+        ModelObserver::disableSyncingFor(Connector::class);
     }
 }
