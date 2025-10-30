@@ -41,7 +41,7 @@ class AlgoliaSetupProductsIndexCommand extends Command
         $settings = [
             //  Search by name, manufacturer or description (full-text search)
             'searchableAttributes' => [
-                'title',
+                'name',
                 'manufacturer_name',
                 'unordered(description)',
             ],
@@ -51,6 +51,14 @@ class AlgoliaSetupProductsIndexCommand extends Command
                 'searchable(type)',
                 'searchable(manufacturer_name)',
                 'searchable(connector_type_name)',
+            ],
+
+            'renderingContent' => [
+                'facetOrdering' => [
+                    'facets' => [
+                        'order' => ['type', 'manufacturer_name', 'connector_type_name'],
+                    ],
+                ],
             ],
 
             // What to return + highlighting
@@ -86,6 +94,7 @@ class AlgoliaSetupProductsIndexCommand extends Command
             // Typo tolerance defaults
             'minWordSizefor1Typo' => 4,
             'minWordSizefor2Typos' => 8,
+            'maxValuesPerFacet' => 100,
         ];
 
         $this->info('Setting up products index...');

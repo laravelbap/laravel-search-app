@@ -63,8 +63,8 @@ class ProductSearchService
                 'query' => $data->searchTerm,
                 'filters' => $filters,
                 'numeric' => $numericFilters,
-                'page' => Arr::get($raw, 'page', max(0, $page - 1)) + 1, // na zewnątrz zwracamy 1-based
-                'per_page' => $perPage,
+                'page' => Arr::get($raw, 'page', max(0, $page - 1)) + 1,
+                'perPage' => $perPage,
                 'total' => Arr::get($raw, 'nbHits', 0),
                 'hits' => Arr::get($raw, 'hits', []),
                 'raw' => $raw,
