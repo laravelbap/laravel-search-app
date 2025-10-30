@@ -142,21 +142,34 @@ watch([searchTerm, filterProductType, filterManufacturer, filterConnectorType, f
                             </RadioGroup>
                         </div>
 
-                        <!-- Manufacturer Filter (moved here) -->
-                        <div v-if="availableFacets.find(f => f.facet === 'manufacturer_name')">
-                            <Label>Manufacturer</Label>
-                            <RadioGroup v-model="filterManufacturer" class="flex flex-col space-y-1">
-                                <div class="flex items-center space-x-2">
-                                    <RadioGroupItem id="manufacturer-all" value="all"/>
-                                    <Label for="manufacturer-all">All</Label>
-                                </div>
-                                <div v-for="([value, count]) in availableFacets.find(f => f.facet === 'manufacturer_name')?.values" :key="value" class="flex items-center space-x-2">
-                                    <RadioGroupItem :id="value" :value="value"/>
-                                    <Label :for="value">{{ value }} ({{ count }})</Label>
-                                </div>
-                            </RadioGroup>
+                        <div v-for="facet in availableFacets" :key="facet.facet">
+                            <div v-if="facet.facet === 'manufacturer_name'">
+                                <Label>{{ facet.label }}</Label>
+                                <RadioGroup v-model="facet.model.value" class="flex flex-col space-y-1">
+                                    <div class="flex items-center space-x-2">
+                                        <RadioGroupItem :id="facet.facet + '-all'" value="all"/>
+                                        <Label :for="facet.facet + '-all'">All</Label>
+                                    </div>
+                                    <div v-for="([value, count]) in facet.values" :key="value" class="flex items-center space-x-2">
+                                        <RadioGroupItem :id="value" :value="value"/>
+                                        <Label :for="value">{{ value }} ({{ count }})</Label>
+                                    </div>
+                                </RadioGroup>
+                            </div>
+                            <div v-if="facet.facet === 'connector_type_name' && filterProductType === 'Connector'">
+                                <Label>{{ facet.label }}</Label>
+                                <RadioGroup v-model="facet.model.value" class="flex flex-col space-y-1">
+                                    <div class="flex items-center space-x-2">
+                                        <RadioGroupItem :id="facet.facet + '-all'" value="all"/>
+                                        <Label :for="facet.facet + '-all'">All</Label>
+                                    </div>
+                                    <div v-for="([value, count]) in facet.values" :key="value" class="flex items-center space-x-2">
+                                        <RadioGroupItem :id="value" :value="value"/>
+                                        <Label :for="value">{{ value }} ({{ count }})</Label>
+                                    </div>
+                                </RadioGroup>
+                            </div>
                         </div>
-
 
                         <div>
                             <Label>Price</Label>
@@ -165,23 +178,6 @@ watch([searchTerm, filterProductType, filterManufacturer, filterConnectorType, f
                                 <Input type="number" placeholder="Max" v-model="filterPriceMax" min="0"/>
                             </div>
                         </div>
-
-                        <!-- Connector Type Filter (conditional) -->
-                        <div v-if="filterProductType === 'Connector' && availableFacets.find(f => f.facet === 'connector_type_name')">
-                            <Label>Connector Type</Label>
-                            <RadioGroup v-model="filterConnectorType" class="flex flex-col space-y-1">
-                                <div class="flex items-center space-x-2">
-                                    <RadioGroupItem id="connector_type_name-all" value="all"/>
-                                    <Label for="connector_type_name-all">All</Label>
-                                </div>
-                                <div v-for="([value, count]) in availableFacets.find(f => f.facet === 'connector_type_name')?.values" :key="value" class="flex items-center space-x-2">
-                                    <RadioGroupItem :id="value" :value="value"/>
-                                    <Label :for="value">{{ value }} ({{ count }})</Label>
-                                </div>
-                            </RadioGroup>
-                        </div>
-
-                        <!-- Power Output Filter (conditional) -->
                         <div v-if="filterProductType === 'SolarPanel'">
                             <Label>Power Output</Label>
                             <div class="flex space-x-2">
@@ -189,8 +185,6 @@ watch([searchTerm, filterProductType, filterManufacturer, filterConnectorType, f
                                 <Input type="number" placeholder="Max" v-model="filterPowerOutputMax" min="0"/>
                             </div>
                         </div>
-
-                        <!-- Capacity Filter (conditional) -->
                         <div v-if="filterProductType === 'Battery'">
                             <Label>Capacity</Label>
                             <div class="flex space-x-2">
@@ -269,9 +263,5 @@ watch([searchTerm, filterProductType, filterManufacturer, filterConnectorType, f
             </div>
         </div>
 
-
-        <pre>
-                {{ searchResults }}
-            </pre>
     </div>
 </template>

@@ -7,13 +7,24 @@ use App\Service\ProductSearchService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
+/**
+ * Search controller for products
+ * ProductController
+ */
 class ProductController extends Controller
 {
+    /**
+     * Search products
+     * @param Request $request
+     * @param ProductSearchService $productSearchService
+     * @return \Inertia\Response
+     */
     public function index(Request $request, ProductSearchService $productSearchService)
     {
         $searchData = ProductSearchData::from($request->all());
+
         $page = $request->input('page', 1);
-        $perPage = 10; // Default items per page
+        $perPage = 10; 
         $searchResults = $productSearchService->search($searchData, $page, $perPage);
 
         return Inertia::render('Welcome', [
@@ -21,4 +32,5 @@ class ProductController extends Controller
             'searchResults' => $searchResults,
         ]);
     }
+
 }
