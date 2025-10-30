@@ -24,8 +24,7 @@ class ProductController extends Controller
         $searchData = ProductSearchData::from($request->all());
 
         $page = $request->input('page', 1);
-        $perPage = 10; 
-        $searchResults = $productSearchService->search($searchData, $page, $perPage);
+        $searchResults = $productSearchService->search($searchData, $page);
 
         return Inertia::render('Welcome', [
             'filters' => $searchData,
