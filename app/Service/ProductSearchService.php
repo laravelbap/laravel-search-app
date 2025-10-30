@@ -36,7 +36,6 @@ class ProductSearchService
             $this->rangeToNumericFilters('capacity', $data->filterCapacity ?? null),
         )));
 
-
         $builder = Products::search($data->searchTerm, function ($algolia, string $query, array $opts) use ($filters, $numericFilters, $page, $perPage) {
             if (!empty($filters)) {
                 $opts['filters'] = implode(' AND ', $filters);
@@ -63,8 +62,8 @@ class ProductSearchService
                 'query' => $data->searchTerm,
                 'filters' => $filters,
                 'numeric' => $numericFilters,
-                'page' => Arr::get($raw, 'page', max(0, $page - 1)) + 1, // na zewnątrz zwracamy 1-based
-                'per_page' => $perPage,
+                'page' => Arr::get($raw, 'page', max(0, $page - 1)) + 1,
+                'perPage' => $perPage,
                 'total' => Arr::get($raw, 'nbHits', 0),
                 'hits' => Arr::get($raw, 'hits', []),
                 'raw' => $raw,
@@ -81,7 +80,7 @@ class ProductSearchService
      */
     private function escapeFacet(string $value): string|null
     {
-        return str_replace('"', '\"', $value);
+        return '"' . addcslashes($value, '\\"') . '"';
     }
 
     /**
