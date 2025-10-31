@@ -41,8 +41,8 @@ class ProductSearchDataTest extends TestCase
         $data = new ProductSearchData(
             searchTerm: 'solar panel',
             filterProductType: 'Solar Panel',
-            filterManufacturer: 'ExampleCorp',
-            filterConnectorType: 'MC4',
+            filterManufacturer: ['ExampleCorp'],
+            filterConnectorType: ['MC4'],
             filterPrice: $rangePrice,
             filterPowerOutput: $rangePower,
             filterCapacity: $rangeCapacity,
@@ -50,8 +50,8 @@ class ProductSearchDataTest extends TestCase
 
         $this->assertEquals('solar panel', $data->searchTerm);
         $this->assertEquals('Solar Panel', $data->filterProductType);
-        $this->assertEquals('ExampleCorp', $data->filterManufacturer);
-        $this->assertEquals('MC4', $data->filterConnectorType);
+        $this->assertEquals(['ExampleCorp'], $data->filterManufacturer);
+        $this->assertEquals(['MC4'], $data->filterConnectorType);
         $this->assertEquals($rangePrice, $data->filterPrice);
         $this->assertEquals($rangePower, $data->filterPowerOutput);
         $this->assertEquals($rangeCapacity, $data->filterCapacity);
