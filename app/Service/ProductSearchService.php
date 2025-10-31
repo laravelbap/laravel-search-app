@@ -2,110 +2,195 @@
 
 namespace App\Service;
 
+use Algolia\AlgoliaSearch\SearchClient;
 use App\Data\Param\ProductSearchData;
-use App\Data\Param\RangeData;
 use App\Data\Result\SearchResult;
-use App\Search\Products;
-use Illuminate\Support\Arr;
 
+/**
+ * Search Product Service
+ */
 class ProductSearchService
 {
+    protected $client;
+    protected string $indexName = 'products';
 
-
-    public function search(ProductSearchData $data, int $page = 1, int $perPage = 10): SearchResult
+    public function __construct()
     {
+        $appId = config('scout.algolia.id');
+        $apiKey = config('scout.algolia.secret');
 
-        $filters = [];
+        if (!$appId || !$apiKey) {
+            throw new \RuntimeException('Missing ALGOLIA_APP_ID or ALGOLIA_SECRET in config/scout.php/.env');
+        }
 
-        // Product Type (Solar Panel, Battery, Connector)
+        $this->client = SearchClient::create($appId, $apiKey);
+    }
+
+    /**
+     * Search with proper disjunctive facet counts (facets don't disappear).
+     */
+    public function search(ProductSearchData $data, int $page = 1, int $perPage = 12): SearchResult
+    {
+        $index = $this->client->initIndex($this->indexName);
+
+        // Define facet behavior (Checkbox - OR)
+        $disjunctiveFacets = [
+            'connector_type_name',
+            'manufacturer_name'
+        ];
+        $conjunctiveFacets = [
+            'type', // single-choice
+        ];
+
+        // Build facetFilters (array-of-arrays) and numericFilters
+        $facetFilters = [];
+        $numericFilters = [];
+
+        // Conjunctive example: product type
         if ($data->filterProductType) {
-            $filters[] = 'type:' . $this->escapeFacet($data->filterProductType);
-        }
-        // Manufacturer
-        if ($data->filterManufacturer) {
-            $filters[] = 'manufacturer_name:' . $this->escapeFacet($data->filterManufacturer);
-        }
-        // Connector Type
-        if ($data->filterConnectorType) {
-            $filters[] = 'connector_type_name:' . $this->escapeFacet($data->filterConnectorType);
+            $facetFilters[] = ['type:' . $this->escapeFacet($data->filterProductType)];
         }
 
-        $numericFilters = array_values(array_filter(array_merge(
-            $this->rangeToNumericFilters('price', $data->filterPrice ?? null),
-            $this->rangeToNumericFilters('power_output', $data->filterPowerOutput ?? null),
-            $this->rangeToNumericFilters('capacity', $data->filterCapacity ?? null),
-        )));
-
-        $builder = Products::search($data->searchTerm, function ($algolia, string $query, array $opts) use ($filters, $numericFilters, $page, $perPage) {
-            if (!empty($filters)) {
-                $opts['filters'] = implode(' AND ', $filters);
+        //  connector_type (OR group)
+        if (!empty($data->filterConnectorType) && is_array($data->filterConnectorType)) {
+            $group = [];
+            foreach ($data->filterConnectorType as $val) {
+                $group[] = 'connector_type_name:' . $this->escapeFacet($val);
             }
-            if (!empty($numericFilters)) {
-                $opts['numericFilters'] = $numericFilters;
+            if ($group) {
+                $facetFilters[] = $group;
             }
+        }
 
-            $opts['facets'] = ['type', 'manufacturer_name', 'connector_type_name'];
+        //  manufacturer disjunctive
+        if (!empty($data->filterManufacturer) && is_array($data->filterManufacturer)) {
+            $group = [];
+            foreach ($data->filterManufacturer as $val) {
+                $group[] = 'manufacturer_name:' . $this->escapeFacet($val);
+            }
+            if ($group) {
+                $facetFilters[] = $group;
+            }
+        }
 
-            $opts['page'] = max(0, $page - 1);
-            $opts['hitsPerPage'] = $perPage;
-            $opts['attributesToHighlight'] = ['title', 'description'];
-            $opts['highlightPreTag'] = '<mark>';
-            $opts['highlightPostTag'] = '</mark>';
+        // Numeric range (price)
+        if ($data->filterPrice && ($data->filterPrice->min !== null || $data->filterPrice->max !== null)) {
+            if ($data->filterPrice->min !== null) {
+                $numericFilters[] = "price >= {$data->filterPrice->min}";
+            }
+            if ($data->filterPrice->max !== null) {
+                $numericFilters[] = "price <= {$data->filterPrice->max}";
+            }
+        }
 
-            return $algolia->search($query, $opts);
-        });
+        // power_output
+        if ($data->filterPowerOutput && ($data->filterPowerOutput->min !== null || $data->filterPowerOutput->max !== null)) {
+            if ($data->filterPowerOutput->min !== null) {
+                $numericFilters[] = "power_output >= {$data->filterPowerOutput->min}";
+            }
+            if ($data->filterPowerOutput->max !== null) {
+                $numericFilters[] = "power_output <= {$data->filterPowerOutput->max}";
+            }
+        }
 
-        $raw = $builder->raw();
+        // capacity
+        if ($data->filterCapacity && ($data->filterCapacity->min !== null || $data->filterCapacity->max !== null)) {
+            if ($data->filterCapacity->min !== null) {
+                $numericFilters[] = "capacity >= {$data->filterCapacity->min}";
+            }
+            if ($data->filterCapacity->max !== null) {
+                $numericFilters[] = "capacity <= {$data->filterCapacity->max}";
+            }
+        }
 
-        return SearchResult::from(
-            [
-                'query' => $data->searchTerm,
-                'filters' => $filters,
-                'numeric' => $numericFilters,
-                'page' => Arr::get($raw, 'page', max(0, $page - 1)) + 1,
-                'perPage' => $perPage,
-                'total' => Arr::get($raw, 'nbHits', 0),
-                'hits' => Arr::get($raw, 'hits', []),
-                'raw' => $raw,
-            ]
+        $query = $data->searchTerm ?? '';
+
+        // Search
+        $mainParams = [
+            'page' => max(0, $page - 1),
+            'hitsPerPage' => $perPage,
+            'facets' => array_merge($disjunctiveFacets, $conjunctiveFacets),
+            'maxValuesPerFacet' => 100,
+        ];
+        if ($facetFilters) $mainParams['facetFilters'] = $facetFilters;
+        if ($numericFilters) $mainParams['numericFilters'] = $numericFilters;
+
+        $mainRes = $index->search($query, $mainParams);
+
+        // Disjunctive facet recomputation (remove that facet’s own filter group)
+        $facetCounts = $mainRes['facets'] ?? [];
+        foreach ($disjunctiveFacets as $attr) {
+            $filtersExcludingThis = $this->removeFacetGroup($facetFilters, $attr);
+
+            $params = [
+                'page' => 0,
+                'hitsPerPage' => 0,
+                'facets' => [$attr],
+                'maxValuesPerFacet' => 100,
+            ];
+            if ($filtersExcludingThis) $params['facetFilters'] = $filtersExcludingThis;
+            if ($numericFilters) $params['numericFilters'] = $numericFilters;
+
+            $res = $index->search($query, $params);
+            $facetCounts[$attr] = $res['facets'][$attr] ?? [];
+        }
+
+        // Map data to your SearchResult(Data) shape
+        $filtersPayload = [
+            'facetFilters' => $facetFilters,
+            'selected' => [
+                'type' => $data->filterProductType ?? null,
+                'connector_type_name' => $data->filterConnectorType ?? [],
+                'manufacturer_name' => $data->filterManufacturer ?? [],
+            ],
+        ];
+
+        $numericPayload = $numericFilters;
+
+        $rawPayload = [
+            'nbPages' => $mainRes['nbPages'] ?? 0,
+            'processingTimeMS' => $mainRes['processingTimeMS'] ?? null,
+            'facets' => $facetCounts,
+            'disjunctiveFacets' => $disjunctiveFacets,
+            'conjunctiveFacets' => $conjunctiveFacets,
+        ];
+
+        return new SearchResult(
+            query: $query,
+            filters: $filtersPayload,
+            numeric: $numericPayload,
+            page: ($mainRes['page'] ?? 0) + 1,
+            perPage: $perPage,
+            total: $mainRes['nbHits'] ?? 0,
+            hits: $mainRes['hits'] ?? [],
+            raw: $rawPayload,
         );
-
-    }
-
-
-    /**
-     * Escape facet value for Algolia
-     * @param string $value
-     * @return string
-     */
-    private function escapeFacet(string $value): string|null
-    {
-        return '"' . addcslashes($value, '\\"') . '"';
     }
 
     /**
-     * Convert range data to numeric filters
-     * @param string $field
-     * @param RangeData|null $range
-     * @return array
+     * Remove groups from facetFilters that correspond to a given attribute.
      */
-    private function rangeToNumericFilters(string $field, ?RangeData $range): array
+    protected function removeFacetGroup(?array $facetFilters, string $attr): array
     {
-        if (!$range) {
-            return [];
-        }
+        if (empty($facetFilters)) return [];
 
-        $out = [];
-
-        if ($range->min) {
-            $out[] = "{$field}>=" . (float)$range->min;
+        $new = [];
+        foreach ($facetFilters as $group) {
+            $g = is_array($group) ? $group : [$group];
+            $skip = false;
+            foreach ($g as $entry) {
+                if (strpos($entry, $attr . ':') === 0) {
+                    $skip = true;
+                    break;
+                }
+            }
+            if (!$skip) $new[] = $g;
         }
-        if ($range->max) {
-            $out[] = "{$field}<=" . (float)$range->max;
-        }
-
-        return $out;
+        return $new;
     }
 
-
+    protected function escapeFacet(string $value): string
+    {
+        return str_replace(':', '\:', $value);
+    }
 }

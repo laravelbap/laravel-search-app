@@ -10,8 +10,8 @@ class ProductSearchData extends Data
         public ?string    $searchTerm,
 
         public ?string    $filterProductType,
-        public ?string    $filterManufacturer,
-        public ?string    $filterConnectorType,
+        public ?array     $filterManufacturer,
+        public ?array     $filterConnectorType,
 
         public ?RangeData $filterPrice,
         public ?RangeData $filterPowerOutput,
