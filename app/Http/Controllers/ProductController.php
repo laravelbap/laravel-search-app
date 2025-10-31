@@ -23,6 +23,7 @@ class ProductController extends Controller
     {
         $searchData = ProductSearchData::from($request->all());
 
+
         $page = $request->input('page', 1);
         $searchResults = $productSearchService->search($searchData, $page);
 
